@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Santa — Portfolio Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://s3.tradingview.com/tv.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #eff6ff;
+      --card:     #ffffff;
+      --hdr:      #071428;
+      --hdr-sub:  #7bafd4;
+      --p900:     #0c2340;
+      --p700:     #1a4278;
+      --p600:     #1d4ed8;
+      --p500:     #3b82f6;
+      --p300:     #93c5fd;
+      --p200:     #bfdbfe;
+      --p100:     #dbeafe;
+      --p50:      #eff6ff;
+      --txt:      #0f2540;
+      --txt2:     #2e5680;
+      --muted:    #6b87aa;
+      --border:   #bfdbfe;
+      --sell-bg:  #eef2ff; --sell-bd: #a5b4fc; --sell-tx: #3730a3;
+      --buy-bg:   #f0fdf9; --buy-bd:  #6ee7b7; --buy-tx:  #065f46;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    .site-header {
+      background: var(--hdr);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 15px 28px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 14px rgba(0,0,0,.38);
+    }
+
+    .cursive {
+      font-family: 'Dancing Script', cursive;
+      color: var(--hdr-sub);
+      font-size: 1.1rem;
+      font-weight: 600;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .site-header h1 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: #fff;
+      text-align: center;
+      flex: 1;
+      letter-spacing: -.01em;
+    }
+
+    /* ── MAIN ────────────────────────────────────────────── */
+    main {
+      max-width: 880px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 26px 14px 44px;
+      flex: 1;
+    }
+
+    .section-label {
+      font-size: .68rem;
+      font-weight: 600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+      padding-left: 3px;
+    }
+
+    /* ── CARD ────────────────────────────────────────────── */
+    .stock-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 9px;
+      overflow: hidden;
+      transition: box-shadow .2s ease, border-color .2s ease;
+    }
+    .stock-card:hover { box-shadow: 0 2px 10px rgba(29,78,216,.09); }
+    .stock-card.open  {
+      border-color: var(--p500);
+      box-shadow: 0 4px 20px rgba(29,78,216,.16);
+    }
+
+    /* ── TOGGLE BUTTON ───────────────────────────────────── */
+    .toggle-btn {
+      width: 100%;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 13px 15px 11px;
+      text-align: left;
+      display: block;
+      color: inherit;
+    }
+    .toggle-btn:focus-visible {
+      outline: 2px solid var(--p500);
+      outline-offset: -2px;
+      border-radius: 9px;
+    }
+
+    /* ── ROW 1 ───────────────────────────────────────────── */
+    .row1 {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+    .co-name  { font-size: .93rem; font-weight: 600; color: var(--txt); }
+
+    .ticker-tag {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .05em;
+      background: var(--p600);
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .pill {
+      font-size: .71rem;
+      padding: 2px 9px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--p50);
+      color: var(--txt2);
+      white-space: nowrap;
+    }
+    .pill-k { color: var(--muted); margin-right: 3px; }
+    .pill-v { font-weight: 500; }
+
+    .pill-sell        { border-color: var(--sell-bd); background: var(--sell-bg); color: var(--sell-tx); }
+    .pill-buy         { border-color: var(--buy-bd);  background: var(--buy-bg);  color: var(--buy-tx); }
+    .pill-buy.na      { border-color: var(--border);  background: var(--p50);     color: var(--muted); }
+
+    .chevron {
+      margin-left: auto;
+      color: var(--p300);
+      font-size: .78rem;
+      flex-shrink: 0;
+      transition: transform .3s cubic-bezier(.4,0,.2,1);
+      padding-left: 4px;
+    }
+    .open .chevron { transform: rotate(180deg); }
+
+    /* ── ROW 2 — RATIONALE ───────────────────────────────── */
+    .row2 {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px 14px;
+    }
+
+    .r-chip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: .71rem;
+      color: var(--txt2);
+    }
+    .r-label {
+      font-size: .65rem;
+      font-weight: 600;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .r-icon { font-size: .82rem; line-height: 1; }
+    .r-val  { font-weight: 500; }
+
+    /* ── ACCORDION CONTENT ───────────────────────────────── */
+    .card-body {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height .38s cubic-bezier(.4,0,.2,1);
+    }
+    .card-body.open { max-height: 470px; }
+
+    .chart-area {
+      padding: 0 15px 15px;
+      border-top: 1px solid var(--p100);
+    }
+
+    .chart-label {
+      font-size: .65rem;
+      font-weight: 600;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin: 10px 0 8px;
+    }
+
+    .chart-wrap {
+      height: 340px;
+      width: 100%;
+      border-radius: 6px;
+      overflow: hidden;
+      background: var(--p50);
+    }
+
+    .chart-foot {
+      margin-top: 7px;
+      text-align: right;
+    }
+    .gf-link {
+      font-size: .68rem;
+      color: var(--p500);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .gf-link:hover { text-decoration: underline; }
+
+    /* ── FOOTER ──────────────────────────────────────────── */
+    footer {
+      background: var(--hdr);
+      text-align: center;
+      padding: 18px 16px;
+      font-size: .7rem;
+      color: #3e5a80;
+      letter-spacing: .06em;
+    }
+
+    /* ── RESPONSIVE ──────────────────────────────────────── */
+    @media (max-width: 540px) {
+      .site-header { padding: 11px 14px; }
+      .cursive { font-size: .92rem; }
+      .site-header h1 { font-size: 1.05rem; }
+      .toggle-btn { padding: 11px 12px 9px; }
+    }
+    @media (max-width: 370px) {
+      .cursive { display: none; }
+      .site-header h1 { font-size: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <span class="cursive">Stock Santa</span>
+  <h1>Track Santa's portfolio</h1>
+  <span class="cursive">Buy low &amp; accumulate</span>
+</header>
+
+<main>
+  <p class="section-label">11 positions</p>
+  <div id="accordion"></div>
+</main>
+
+<footer>More to come from Team Santa</footer>
+
+<script>
+/* ── Data ─────────────────────────────────────────────── */
+const STOCKS = [
+  { id:'AMZN', name:'Amazon',           exch:'NASDAQ', shares:37,   avg:187.51, sell:'Long Term Buy', buy:'$195',
+    r:{ usage:'Very Often', product:'Very High', leadership:'Yes', monopoly:'Yes' } },
+  { id:'DAL',  name:'Delta Air Lines',  exch:'NYSE',   shares:51,   avg:29.01,  sell:'Long Term Buy', buy:'$35',
+    r:{ usage:'Very Often', product:'Very High', leadership:'Yes', monopoly:'No'  } },
+  { id:'CSIQ', name:'Canadian Solar',   exch:'NASDAQ', shares:175,  avg:38.32,  sell:'Long Term Buy', buy:'N/A',
+    r:{ usage:'Never',      product:'High',      leadership:'Yes', monopoly:'No'  } },
+  { id:'OPEN', name:'Opendoor',         exch:'NASDAQ', shares:1041, avg:7.62,   sell:'$15.00',        buy:'N/A',
+    r:{ usage:'Never',      product:'High',      leadership:'Yes', monopoly:'Niche'} },
+  { id:'ARM',  name:'ARM Holdings',     exch:'NASDAQ', shares:30,   avg:51.00,  sell:'Long Term Buy', buy:'$75',
+    r:{ usage:'Often',      product:'Very High', leadership:'Yes', monopoly:'Yes' } },
+  { id:'META', name:'Meta Platforms',   exch:'NASDAQ', shares:6,    avg:185.00, sell:'Long Term Buy', buy:'$200',
+    r:{ usage:'Often',      product:'Very High', leadership:'Yes', monopoly:'Yes' } },
+  { id:'SBUX', name:'Starbucks',        exch:'NASDAQ', shares:6,    avg:72.69,  sell:'$125.00',       buy:'$80',
+    r:{ usage:'Very Often', product:'Very High', leadership:'Yes', monopoly:'Yes' } },
+  { id:'WBTN', name:'Webtoon',          exch:'NASDAQ', shares:50,   avg:22.00,  sell:'$25.00',        buy:'N/A',
+    r:{ usage:'Never',      product:'Very High', leadership:'N/A', monopoly:'Yes' } },
+  { id:'UNH',  name:'UnitedHealth Group',exch:'NYSE',  shares:31,   avg:264.81, sell:'Long Term Buy', buy:'$270',
+    r:{ usage:'Sometimes',  product:'Very High', leadership:'Yes', monopoly:'No'  } },
+  { id:'BX',   name:'Blackstone',       exch:'NYSE',   shares:35,   avg:107.41, sell:'Long Term Buy', buy:'$106',
+    r:{ usage:'Never',      product:'Very High', leadership:'Yes', monopoly:'No'  } },
+  { id:'LEN',  name:'Lennar Corp',      exch:'NYSE',   shares:93,   avg:89.02,  sell:'Long Term Buy', buy:'$81',
+    r:{ usage:'Never',      product:'High',      leadership:'Yes', monopoly:'No'  } },
+];
+
+/* ── Icons ────────────────────────────────────────────── */
+const USAGE    = { 'Never':'🚫', 'Sometimes':'🔅', 'Often':'👍', 'Very Often':'🔥' };
+const PRODUCT  = { 'High':'⭐',  'Very High':'🌟' };
+const LEADER   = { 'Yes':'✅',   'No':'❌',         'N/A':'➖' };
+const MONOPOLY = { 'Yes':'👑',   'No':'🤝',         'Niche':'🎯' };
+
+/* ── Build cards ──────────────────────────────────────── */
+function buildCard(s) {
+  const ltSell = s.sell === 'Long Term Buy';
+  const naB    = s.buy  === 'N/A';
+  const r      = s.r;
+
+  return `
+<div class="stock-card" id="card-${s.id}">
+  <button class="toggle-btn" onclick="toggle('${s.id}')" aria-expanded="false" aria-controls="body-${s.id}">
+    <div class="row1">
+      <span class="co-name">${s.name}</span>
+      <span class="ticker-tag">${s.id}</span>
+      <span class="pill"><span class="pill-k">Shares</span><span class="pill-v">${s.shares.toLocaleString()}</span></span>
+      <span class="pill"><span class="pill-k">Avg cost</span><span class="pill-v">$${s.avg.toFixed(2)}</span></span>
+      <span class="pill ${ltSell ? '' : 'pill-sell'}">
+        <span class="pill-k">Sell</span><span class="pill-v">${s.sell}</span>
+      </span>
+      <span class="pill pill-buy${naB ? ' na' : ''}">
+        <span class="pill-k">Buy @</span><span class="pill-v">${s.buy}</span>
+      </span>
+      <span class="chevron">▾</span>
+    </div>
+    <div class="row2">
+      <span class="r-chip">
+        <span class="r-label">Usage</span>
+        <span class="r-icon">${USAGE[r.usage]    || '•'}</span>
+        <span class="r-val">${r.usage}</span>
+      </span>
+      <span class="r-chip">
+        <span class="r-label">Product</span>
+        <span class="r-icon">${PRODUCT[r.product]   || '•'}</span>
+        <span class="r-val">${r.product}</span>
+      </span>
+      <span class="r-chip">
+        <span class="r-label">Leadership</span>
+        <span class="r-icon">${LEADER[r.leadership]  || '•'}</span>
+        <span class="r-val">${r.leadership}</span>
+      </span>
+      <span class="r-chip">
+        <span class="r-label">Monopoly</span>
+        <span class="r-icon">${MONOPOLY[r.monopoly]  || '•'}</span>
+        <span class="r-val">${r.monopoly}</span>
+      </span>
+    </div>
+  </button>
+
+  <div class="card-body" id="body-${s.id}">
+    <div class="chart-area">
+      <p class="chart-label">Price chart</p>
+      <div class="chart-wrap" id="chart-${s.id}"></div>
+      <div class="chart-foot">
+        <a class="gf-link"
+           href="https://www.google.com/finance/quote/${s.id}:${s.exch}"
+           target="_blank" rel="noopener">
+          Open in Google Finance ↗
+        </a>
+      </div>
+    </div>
+  </div>
+</div>`;
+}
+
+document.getElementById('accordion').innerHTML = STOCKS.map(buildCard).join('');
+
+/* ── Accordion logic ──────────────────────────────────── */
+let openId = null;
+const loaded = new Set();
+
+function toggle(id) {
+  if (openId && openId !== id) closeCard(openId);
+  if (openId === id) { closeCard(id); openId = null; }
+  else               { openCard(id);  openId = id;  }
+}
+
+function openCard(id) {
+  const card = document.getElementById('card-' + id);
+  const body = document.getElementById('body-' + id);
+  card.classList.add('open');
+  body.classList.add('open');
+  card.querySelector('.toggle-btn').setAttribute('aria-expanded', 'true');
+  if (!loaded.has(id)) { loaded.add(id); loadChart(id); }
+}
+
+function closeCard(id) {
+  const card = document.getElementById('card-' + id);
+  const body = document.getElementById('body-' + id);
+  card.classList.remove('open');
+  body.classList.remove('open');
+  card.querySelector('.toggle-btn').setAttribute('aria-expanded', 'false');
+}
+
+/* ── TradingView chart ────────────────────────────────── */
+function loadChart(id) {
+  const s = STOCKS.find(x => x.id === id);
+  if (!s) return;
+
+  const attempt = () => {
+    if (typeof TradingView === 'undefined') { setTimeout(attempt, 250); return; }
+    new TradingView.widget({
+      container_id:      'chart-' + id,
+      autosize:          true,
+      symbol:            s.exch + ':' + id,
+      interval:          'W',
+      timezone:          'America/New_York',
+      theme:             'light',
+      style:             '3',          /* Area chart — clean for a dashboard */
+      locale:            'en',
+      toolbar_bg:        '#eff6ff',
+      enable_publishing: false,
+      hide_top_toolbar:  false,
+      hide_legend:       false,
+      hide_side_toolbar: true,
+      save_image:        false,
+      hideideas:         true,
+    });
+  };
+
+  attempt();
+}
+</script>
+
+</body>
+</html>
